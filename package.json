@@ -1,0 +1,33 @@
+{
+  "name": "@serverless-tools/ddb-entity",
+  "version": "1.0.0",
+  "description": "A DynamoDB Entity Model (very simple ORM)",
+  "scripts": {
+    "build": "npm run clear && tsc",
+    "clear": "rm -rf *.js *.d.ts && rm -rf test/*.js rm -rf test/*.d.ts",
+    "create-table": "ts-node test/CreateTable.ts",
+    "test": "AWS_REGION=us-east-1 mocha -v -noEmit -g "
+  },
+  "keywords": [
+    "AWS",
+    "DynamoDB",
+    "Model",
+    "Entity",
+    "ORM"
+  ],
+  "author": "Alexandre Santos",
+  "dependencies": {
+    "@aws-sdk/lib-dynamodb": "^3.23.0",
+    "lodash": "^4.17.21",
+    "mocha": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.171",
+    "@types/mocha": "^8.2.3",
+    "@types/node": "^16.3.1",
+    "assert": "^2.0.0",
+    "esbuild": "^0.12.15",
+    "ts-node": "^10.1.0",
+    "typescript": "^4.3.5"
+  }
+}
