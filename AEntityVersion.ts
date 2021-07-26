@@ -30,7 +30,7 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
      { 
          let current = reset ? 0 : this.getVersion();
          
-         this._data.SK = this.SK_PATTERN
+         this._data._SK = this.SK_PATTERN
              .replace("[type]", this.ENTITY as string)
              .replace("[sort]", sort)
              .replace("[ver]", (current).toString());
@@ -47,9 +47,9 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
      */
     public getVersion() : number
     {
-        if(!this._data.SK) return 0;
+        if(!this._data._SK) return 0;
 
-        return parseInt( this._data.SK.split("#")[2] as string, 10);
+        return parseInt( this._data._SK.split("#")[2] as string, 10);
     }
 
     /**
@@ -57,10 +57,10 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
      */
     private _versionAdd()
     {
-        const beginsWith = this._SkWithoutVersion(this._data.SK as string, true);
+        const beginsWith = this._SkWithoutVersion(this._data._SK as string, true);
         const current    = this.getVersion();
 
-        this._data.SK = `${beginsWith}#${current+1}`;
+        this._data._SK = `${beginsWith}#${current+1}`;
         return this;
     }
 
@@ -144,13 +144,13 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
     async delete()
     {
         // get all itens
-        const sk = this._SkWithoutVersion(this._data.SK as string);
+        const sk = this._SkWithoutVersion(this._data._SK as string);
         const lstItens = await DDBCommom.Query<IEntity>({
             TableName: this.TABLE_NAME,
             ProjectionExpression: "PK, SK",
             KeyConditionExpression: "PK = :pk and begins_with(SK, :sk)",
             ExpressionAttributeValues: {
-                ":pk": this._data.PK as any,
+                ":pk": this._data._PK as any,
                 ":sk": sk as any
             }
         }, 0);
@@ -173,8 +173,8 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
                     {
                         DeleteRequest: {
                             Key: {
-                                PK: item.PK as any,
-                                SK: item.SK as any
+                                PK: item._PK as any,
+                                SK: item._SK as any
                             }
                         }
                     }
@@ -195,8 +195,8 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
         await DDBCommom.Delete({
             TableName: this.TABLE_NAME,
             Key: {
-                PK: this._data.PK as any,
-                SK: this._data.SK as any
+                PK: this._data._PK as any,
+                SK: this._data._SK as any
             },
         });
 

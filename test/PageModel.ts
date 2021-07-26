@@ -28,7 +28,7 @@ export default class PageModel extends AEntityVersion<IPage>
      */ 
     setSlug(str: string)  
     {
-        this._data.FROM = this._data.SK;
+        this._data.FROM = this._data._SK;
         this._data.SLUG = str;
         this.setSK(str, true);
 
@@ -46,7 +46,7 @@ export default class PageModel extends AEntityVersion<IPage>
     { 
         super(EEntity.PAGE, json);
 
-        if( !this._data?.PK ) // Insert the required PK if its a new object.
+        if( !this._data?._PK ) // Insert the required PK if its a new object.
             _set(this._data, "PK", this.PK_DEFAULT);
     }
 

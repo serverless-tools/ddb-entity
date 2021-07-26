@@ -18,7 +18,7 @@ export default class PeopleModel extends AEntity<IUser>
 
     setEmail(email: string)
     {
-        if(this._data.PK) throw "Can't change user email";
+        if(this._data._PK) throw "Can't change user email";
 
         this.setPK(email);
         this.setSK(email);

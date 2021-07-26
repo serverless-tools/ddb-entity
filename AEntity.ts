@@ -18,12 +18,12 @@ export {EEntity};
 
 export interface IEntity    // Base entity
 {
-    PK?: string 
-    SK?: string 
-    ENTITY?: string  // ex: ORDER, ORDER ITEM, WAIVER, BALANCE, TRANSACTION, PEOPLE, PAGE, etc.
+    _PK?: string 
+    _SK?: string 
+    _ENTITY?: string  // ex: ORDER, ORDER ITEM, WAIVER, BALANCE, TRANSACTION, PEOPLE, PAGE, etc.
 
-    DT_CREATED?: string  // new Date().toISOString() => '2020-12-14T01:07:22.016Z' 
-    DT_MODIFIED?: string // new Date().toISOString() => '2020-12-14T01:07:22.016Z' 
+    _CREATED?: string  // new Date().toISOString() => '2020-12-14T01:07:22.016Z' 
+    _MODIFIED?: string // new Date().toISOString() => '2020-12-14T01:07:22.016Z' 
 }
 
 export default abstract class AEntity<T extends IEntity>
@@ -68,6 +68,7 @@ export default abstract class AEntity<T extends IEntity>
         let data = {} as T;
 
         if(json) data = _assignIn({}, json);
+        data._ENTITY = this.ENTITY;
 
         return data;
     }
@@ -88,25 +89,25 @@ export default abstract class AEntity<T extends IEntity>
 
     setPK(key: string)  
     { 
-        this._data.PK = key; 
+        this._data._PK = key; 
         return this;  
     }
     
     setSK(sort: string) 
     { 
-        this._data.SK = this._SKcreate(sort, this.ENTITY);
+        this._data._SK = this._SKcreate(sort, this.ENTITY);
         return this;
     }
 
     protected setDtModifiedNow()
     {
-        this._data.DT_MODIFIED = new Date().toISOString();
+        this._data._MODIFIED = new Date().toISOString();
         return this;
     }
 
     protected setDtCreatedNow()
     {
-        this._data.DT_CREATED = new Date().toISOString();
+        this._data._CREATED = new Date().toISOString();
         return this;
     }
 
@@ -129,8 +130,8 @@ export default abstract class AEntity<T extends IEntity>
 
     validate()
     {
-        if(!stringIsNotEmpty(this._data.PK)) throw "PK Required";
-        if(!stringIsNotEmpty(this._data.SK)) throw "SK Required";
+        if(!stringIsNotEmpty(this._data._PK)) throw "PK Required";
+        if(!stringIsNotEmpty(this._data._SK)) throw "SK Required";
     }
 
     //#endregion
@@ -219,8 +220,8 @@ export default abstract class AEntity<T extends IEntity>
         const params = {
             TableName: this.TABLE_NAME,
             Key: {
-                PK: this._data.PK as any,
-                SK: this._data.SK as any
+                PK: this._data._PK as any,
+                SK: this._data._SK as any
             },
             UpdateExpression: updExpression.replace(/,\s*$/, ""),
             ExpressionAttributeNames: updNames,
@@ -242,8 +243,8 @@ export default abstract class AEntity<T extends IEntity>
         await DDBCommom.Delete({
             TableName: this.TABLE_NAME,
             Key: {
-                PK: this._data.PK as any,
-                SK: this._data.SK as any
+                PK: this._data._PK as any,
+                SK: this._data._SK as any
             },
         });
 

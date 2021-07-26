@@ -11,33 +11,33 @@ var params = {
     "BillingMode": "PAY_PER_REQUEST",
     "KeySchema": [
         {
-            "AttributeName": "PK",
+            "AttributeName": "_PK",
             "KeyType": "HASH"
         },
         {
-            "AttributeName": "SK",
+            "AttributeName": "_SK",
             "KeyType": "RANGE"
         }
     ],
     "AttributeDefinitions": [
         {
-            "AttributeName": "PK",
+            "AttributeName": "_PK",
             "AttributeType": "S"
         },
         {
-            "AttributeName": "SK",
+            "AttributeName": "_SK",
             "AttributeType": "S"
         },
         {
-            "AttributeName": "ENTITY",
+            "AttributeName": "_ENTITY",
             "AttributeType": "S"
         },
         {
-            "AttributeName": "DT_CREATED",
+            "AttributeName": "_CREATED",
             "AttributeType": "S"
         },
         {
-            "AttributeName": "DT_MODIFIED",
+            "AttributeName": "_MODIFIED",
             "AttributeType": "S"
         }
     ],
@@ -46,11 +46,11 @@ var params = {
             "IndexName": EIndex.PK_DT_CREATED,
             "KeySchema": [
                 {
-                    "AttributeName": "PK",
+                    "AttributeName": "_PK",
                     "KeyType": "HASH"
                 },
                 {
-                    "AttributeName": "DT_CREATED",
+                    "AttributeName": "_CREATED",
                     "KeyType": "RANGE"
                 }
             ],
@@ -62,11 +62,11 @@ var params = {
             "IndexName": EIndex.PK_DT_MODIFIED,
             "KeySchema": [
                 {
-                    "AttributeName": "PK",
+                    "AttributeName": "_PK",
                     "KeyType": "HASH"
                 },
                 {
-                    "AttributeName": "DT_MODIFIED",
+                    "AttributeName": "_MODIFIED",
                     "KeyType": "RANGE"
                 }
             ],
@@ -80,11 +80,11 @@ var params = {
             "IndexName": EIndex.ENTITY_SK,
             "KeySchema": [
                 {
-                    "AttributeName": "ENTITY",
+                    "AttributeName": "_ENTITY",
                     "KeyType": "HASH"
                 },
                 {
-                    "AttributeName": "SK",
+                    "AttributeName": "_SK",
                     "KeyType": "RANGE"
                 }
             ],
