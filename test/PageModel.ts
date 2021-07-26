@@ -83,7 +83,7 @@ export default class PageModel extends AEntityVersion<IPage>
      */ 
     async get(slug: string) 
     {
-        const sk   = this._factorySK(slug, EEntity.PAGE);
+        const sk   = this._SKcreate(slug, EEntity.PAGE);
         const data = await super.get(this.PK_DEFAULT, sk);
 
         if(data) return new PageModel(data);

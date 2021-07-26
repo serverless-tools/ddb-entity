@@ -26,7 +26,7 @@ const marshallOptions = {
     // Whether to remove undefined values while marshalling.
     removeUndefinedValues: true, // false, by default.
     // Whether to convert typeof object to map attribute.
-    convertClassInstanceToMap: false, // false, by default.
+    convertClassInstanceToMap: true, // false, by default.
 };
 
 const unmarshallOptions = {

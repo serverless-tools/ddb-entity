@@ -33,16 +33,21 @@ export default abstract class AEntity<T extends IEntity>
     public   readonly SK_PATTERN: string; // defaults = "[type]#[sort]";
     
     // protected _conn : DocumentClient;
-    public _data    : T;
-    public ENTITY   : string;
+    public _data  : T;
+    public ENTITY : string;
 
     //#region [Main]
 
+    /**
+     * @param type Entity name
+     * @param json Javascript object to populate the model data (from dynamodb register)
+     * @param skPattern Sort Key patten, defaults is "[type]#[sort]", where will be replaced through this.setSK(str)
+     */
     constructor(type: string, json?: T, skPattern: string = "[type]#[sort]")
     {
         this.SK_PATTERN = skPattern;
         this.ENTITY     = type;
-        this._data      = this._factoryData(json);
+        this._data      = this._jsonParse(json);
     }
 
     static NameOf<T>(name: keyof T) : string
@@ -58,7 +63,7 @@ export default abstract class AEntity<T extends IEntity>
      * Generate data object. 
      * If json param exists, data is initialized with their data.
      */ 
-    protected _factoryData(json?: T)
+    protected _jsonParse(json?: T)
     {
         let data = {} as T;
 
@@ -70,7 +75,7 @@ export default abstract class AEntity<T extends IEntity>
     /**
      * Generate a SK key string
      */ 
-    protected _factorySK(sk: string, entity: string) : string // should be overwrite if yout skPattern is difrent that defaults ([type]#[sort])
+    protected _SKcreate(sk: string, entity: string) : string // should be overwrite if yout skPattern is difrent that defaults ([type]#[sort])
     {
         return this.SK_PATTERN
             .replace("[type]", entity as string)
@@ -89,7 +94,7 @@ export default abstract class AEntity<T extends IEntity>
     
     setSK(sort: string) 
     { 
-        this._data.SK = this._factorySK(sort, this.ENTITY);
+        this._data.SK = this._SKcreate(sort, this.ENTITY);
         return this;
     }
 
@@ -105,12 +110,12 @@ export default abstract class AEntity<T extends IEntity>
         return this;
     }
 
-    setValue(field: string, value: string)
+    setValue(field: keyof T, value: string)
     {
         _set(this._data, field, value);
     }
 
-    getValue(field: string)
+    getValue(field: keyof T)
     {
         if(_has(this._data, field))
             return _get(this._data, field);

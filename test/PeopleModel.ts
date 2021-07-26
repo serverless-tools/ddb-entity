@@ -57,7 +57,7 @@ export default class PeopleModel extends AEntity<IUser>
     /** @override */
     async get(email: string) 
     {
-        const sk = this._factorySK(email, EEntity.PEOPLE);
+        const sk = this._SKcreate(email, EEntity.PEOPLE);
         const data = await super.get(email, sk);
 
         if(data) return new PeopleModel(data as IUser);
