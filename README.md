@@ -1,11 +1,11 @@
-# DynamoDB Model (or Entity, or simple ORM?)
+# DynamoDB Enity (or simple ORM)
 
 ## Insert
 
 ```
-const page = new People();
+const people = new People();
 
-await page
+await people
     .setEmail("fulano@gmail.com")
     .setName("Alexandre Santos")
     .create();
@@ -21,7 +21,7 @@ const model: IPeople = await People.Get("fulano@gmail.com");
 ## Query
 
 ```
-const model: IPeople[] = await People.QueryByXPTO("test");
+const model: IPeople[] = await People.QueryByName("Alex");
 ```
 
 ## Update
@@ -40,15 +40,9 @@ const model: IPeople = await People.Get("fulano@gmail.com");
 await model.delete();
 ```
 
-## Define your model
+# Define your model
 
-1. Define interface of your data extends from `IEntity`;
-2. Define your Model class extends from `AEntity`.
-3. Override constructor() method with a optional data/json paramter + call super("entity name", jsonParameter)
-4. Override get() method (you should use PK and SK to get the document, use `super.get(pk, sk)`)
-5. [optional] Create a static Get() and your static QueryByXXX() methods (see async query<T>(pk, sk) in AEntity.ts)
-
-```
+```typescript
 import AEntity, { IEntity } from "ddb-entity/AEntity";
 
 const ENTITY_NAME = "PEOPLE";
@@ -67,7 +61,7 @@ export default class PeopleModel extends AEntity<IUser>
     /** @override */
     readonly PK_DEFAULT = "[email]";
 
-//#region [Model attributes]
+//#region [Attributes]
 
     setEmail(email: string)
     {
@@ -84,7 +78,7 @@ export default class PeopleModel extends AEntity<IUser>
 
 //#endregion
 
-//#region [Required override]
+//#region [Required]
 
     constructor(json?: IUser)
     { 
@@ -98,19 +92,22 @@ export default class PeopleModel extends AEntity<IUser>
     /** @override */
     validate()
     {
-        super.validate();
+        super.validate(); // validate PK and SK
     
-        if(!this._data.EMAIL) throw "Email é obrigatório";
+        if(!this._data.EMAIL) throw "Email is required";
     }
 
 //#endregion
 
 //#region [Operations]
     
-    /** @override */
+    /**
+     *  @override 
+     * You should how to get your data through PK and SK.
+     **/
     async get(email: string) 
     {
-        const sk = this._factorySK(email, ENTITY_NAME);
+        const sk = this._SKcreate(email, ENTITY_NAME); // => ENTITY_NAME#email
         const data = await super.get(email, sk);
 
         if(data) return new PeopleModel(data as IUser);
@@ -124,12 +121,18 @@ export default class PeopleModel extends AEntity<IUser>
 }
 ```
 
-## AEntityVersion
+1. Define interface of your data extends from `IEntity`;
+2. Define your Model class extends from `AEntity`.
+3. Override constructor() method with a optional data/json paramter + call super("entity name", jsonParameter)
+4. Override get() method (you should use PK and SK to get the document, use `super.get(pk, sk)`)
+5. [optional] Create a static Get() and yours statics QueryByXXX() methods (see, example, in async query<T>(pk, sk) in AEntity.ts)
 
-You can extends from `AEntityVersion` to not allow updates, only new versions.
-More examples in `test/PageModel.ts` e `test/PageModel.test.ts`
+# AEntityVersion
 
-```
+You can extends from `AEntityVersion` to not allow updates, only new versions.  
+More examples at `test/PageModel.ts` and `test/PageModel.test.ts`
+
+```typescript
 const SLUG = "about";
 
 describe("page", async () => 

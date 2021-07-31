@@ -1,5 +1,5 @@
-import { EEntity, IEntity } from "../AEntity";
-import AEntityVersion from "../AEntityVersion";
+import AEntityVersion, {IEntity} from "../AEntityVersion";
+import EEntity from "./EEntity";
 
 import _set from "lodash/set";
 

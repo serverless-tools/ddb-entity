@@ -10,6 +10,8 @@ import { DDBCommom } from "./DDB";
 
 import AEntity, {IEntity} from "./AEntity";
 
+export {IEntity}
+
 export default abstract class AEntityVersion<T extends IEntity> extends AEntity<T>
 {
     //#region [Overrides]
@@ -28,7 +30,7 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
      */ 
      setSK(sort: string, reset = false) 
      { 
-         let current = reset ? 0 : this.getVersion();
+         let current = -1;
          
          this._data._SK = this.SK_PATTERN
              .replace("[type]", this.ENTITY as string)
@@ -91,11 +93,13 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
          this.validate();
          this.setDtCreatedNow();
          this._versionAdd();
+         await this.createPreHook();
  
          const params = {
              TableName: this.TABLE_NAME,
              Item: this._data as any,
-             ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+             ConditionExpression: 'attribute_not_exists(#PK) AND attribute_not_exists(#SK)',
+             ExpressionAttributeNames: { "#PK": "_PK", "#SK": "_SK" },
              ReturnConsumedCapacity: "TOTAL"
          } as PutCommandInput
  
@@ -104,20 +108,50 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
          return await DDBCommom.Put(params);
      }
 
+     async createPreHook()
+     {
+         // Update last documents to [ENTITY NAME]_V
+         const lstItens = await this.getAllVersions();
+
+         console.log(lstItens);
+
+         for(let i=0; i<lstItens.length; i++)
+         {
+             const item = lstItens[i];
+
+             const params = {
+                TableName: this.TABLE_NAME,
+                Key: {
+                    "_PK": item._PK as any,
+                    "_SK": item._SK as any
+                },
+                UpdateExpression: "set #field = :val",
+                ExpressionAttributeNames: {"#field": "_ENTITY"},
+                ExpressionAttributeValues: {":val": this.ENTITY+"_V"},
+                ReturnValues: "ALL_NEW"
+            } as UpdateCommandInput;
+
+            await DDBCommom.Update(params);
+         };
+     }
+
      /**
       * @override
       * Returns, always, the last documento version, query is about SK => [type]#[sort]#[MAX_VERSION]
       */ 
     async get(pk: string, sk: string, consistentRead = false) 
     {
-        const beginsWith = this._SkWithoutVersion(sk);
-        const condition  = `${AEntityVersion.NameOf("PK")} = :pk and begins_with(${AEntityVersion.NameOf("SK")}, :sk)`;
+        const beginsWith = this._SkWithoutVersion(sk); // remove version part from SK
+
+        const condition  = `#PK = :pk and begins_with(#SK, :sk)`;
 
         const first = await DDBCommom.Query_First({
             TableName: this.TABLE_NAME,
             ScanIndexForward: false, // last first
 
             KeyConditionExpression: condition,
+
+            ExpressionAttributeNames: { "#PK": "_PK", "#SK": "_SK" },
 
             ExpressionAttributeValues: {  
                 ":pk": pk,
@@ -144,16 +178,7 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
     async delete()
     {
         // get all itens
-        const sk = this._SkWithoutVersion(this._data._SK as string);
-        const lstItens = await DDBCommom.Query<IEntity>({
-            TableName: this.TABLE_NAME,
-            ProjectionExpression: "PK, SK",
-            KeyConditionExpression: "PK = :pk and begins_with(SK, :sk)",
-            ExpressionAttributeValues: {
-                ":pk": this._data._PK as any,
-                ":sk": sk as any
-            }
-        }, 0);
+        const lstItens = await this.getAllVersions();
 
         // split in chuncks of 25 (max batch write dynamodb limit)
         const chunks = _chunk(lstItens, 25);
@@ -173,8 +198,8 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
                     {
                         DeleteRequest: {
                             Key: {
-                                PK: item._PK as any,
-                                SK: item._SK as any
+                                "_PK": item._PK as any,
+                                "_SK": item._SK as any
                             }
                         }
                     }
@@ -187,6 +212,22 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
         return true;
     }
 
+    private async getAllVersions()
+    {
+        const sk = this._SkWithoutVersion(this._data._SK as string);
+        const lstItens = await DDBCommom.Query<IEntity>({
+            TableName: this.TABLE_NAME,
+            ProjectionExpression: "#PK, #SK",
+            KeyConditionExpression: "#PK = :pk and begins_with(#SK, :sk)",
+            ExpressionAttributeNames: { "#PK": "_PK", "#SK": "_SK" },
+            ExpressionAttributeValues: {
+                ":pk": this._data._PK as any,
+                ":sk": sk as any
+            }
+        }, 0);
+        return lstItens;
+    }
+
     /**
      * @override
      */
@@ -195,8 +236,8 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
         await DDBCommom.Delete({
             TableName: this.TABLE_NAME,
             Key: {
-                PK: this._data._PK as any,
-                SK: this._data._SK as any
+                "_PK": this._data._PK as any,
+                "_SK": this._data._SK as any
             },
         });
 

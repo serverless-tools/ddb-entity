@@ -11,10 +11,7 @@ import {
     UpdateCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 
-import EEntity from "./test/EEntity";
 import { DDBCommom } from "./DDB";
-
-export {EEntity};
 
 export interface IEntity    // Base entity
 {
@@ -138,14 +135,14 @@ export default abstract class AEntity<T extends IEntity>
 
     //#region [Operations]
 
-    async get(pk: string, sk: string, consistentRead = false) 
+    async get(pk: string, sk: string, consistentRead = false)
     {
         const ret = await DDBCommom.Get({
             TableName: this.TABLE_NAME,
             ConsistentRead: consistentRead,
             Key: {
-                PK: pk as any,
-                SK: sk as any
+                "_PK": pk as any,
+                "_SK": sk as any
             }
         });
 
@@ -159,7 +156,8 @@ export default abstract class AEntity<T extends IEntity>
             ScanIndexForward: scanIndexForward,
             ConsistentRead: consistentRead,
             
-            KeyConditionExpression: "PK = :pk and begins_with(SK, :sk)",
+            KeyConditionExpression: "#PK = :pk and begins_with(#SK, :sk)",
+            ExpressionAttributeNames: { "#PK": "_PK", "#SK": "_SK" },
             ExpressionAttributeValues: 
             {
                 ":pk": pk as any,
@@ -191,7 +189,10 @@ export default abstract class AEntity<T extends IEntity>
         } as PutCommandInput;
 
         if(checkExists)
-            params.ConditionExpression = 'attribute_not_exists(PK) AND attribute_not_exists(SK)';
+        {
+            params.ConditionExpression = 'attribute_not_exists(#PK) AND attribute_not_exists(#SK)';
+            params.ExpressionAttributeNames = { "#PK": "_PK", "#SK": "_SK" };
+        }
 
         if(ddbTrx) return params;
 
@@ -208,7 +209,7 @@ export default abstract class AEntity<T extends IEntity>
         let updValues = {} as any;
         
         _forOwn(this._data, (value, field) => {
-            if(field !== "PK" && field !== "SK") // não pode atualizar PPK e SK.
+            if(field !== "_PK" && field !== "_SK" && field !== "_ENTITY") // não pode atualizar PPK e SK.
             {
                 updExpression += ` #${field} = :${field},`;
                 
@@ -220,8 +221,8 @@ export default abstract class AEntity<T extends IEntity>
         const params = {
             TableName: this.TABLE_NAME,
             Key: {
-                PK: this._data._PK as any,
-                SK: this._data._SK as any
+                "_PK": this._data._PK as any,
+                "_SK": this._data._SK as any
             },
             UpdateExpression: updExpression.replace(/,\s*$/, ""),
             ExpressionAttributeNames: updNames,
@@ -243,8 +244,8 @@ export default abstract class AEntity<T extends IEntity>
         await DDBCommom.Delete({
             TableName: this.TABLE_NAME,
             Key: {
-                PK: this._data._PK as any,
-                SK: this._data._SK as any
+                "_PK": this._data._PK as any,
+                "_SK": this._data._SK as any
             },
         });
 
