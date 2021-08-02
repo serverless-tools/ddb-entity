@@ -1,11 +1,9 @@
 import { 
     PutCommandInput,
     UpdateCommandInput,
-    BatchWriteCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 
 import _assign from "lodash/assign";
-import _chunk from "lodash/chunk";
 import { DDBCommom } from "./DDB";
 
 import AEntity, {IEntity} from "./AEntity";
@@ -35,10 +33,19 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
          this._data._SK = this.SK_PATTERN
              .replace("[type]", this.ENTITY as string)
              .replace("[sort]", sort)
-             .replace("[ver]", (current).toString());
+             .replace("[ver]", "v" + (current).toString());
  
          return this;
      }
+
+     /**
+     * Generate a SK key string
+     */ 
+    protected _SKcreate(sk: string, entity: string) : string // should be overwrite if yout skPattern is difrent that defaults ([type]#[sort])
+    {
+        const str = super._SKcreate(sk, entity);
+        return str.replace('[ver]', "v");
+    }
  
     //#endregion
 
@@ -51,7 +58,7 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
     {
         if(!this._data._SK) return 0;
 
-        return parseInt( this._data._SK.split("#")[2] as string, 10);
+        return parseInt( this._data._SK.split("#v")[1] as string, 10);
     }
 
     /**
@@ -62,13 +69,13 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
         const beginsWith = this._SkWithoutVersion(this._data._SK as string, true);
         const current    = this.getVersion();
 
-        this._data._SK = `${beginsWith}#${current+1}`;
+        this._data._SK = `${beginsWith}#v${current+1}`;
         return this;
     }
 
     private _SkWithoutVersion(sk: string, cropLastHash = false)
     {
-        return sk.slice(0, sk.lastIndexOf("#")) + (cropLastHash ? "" : "#");
+        return sk.slice(0, sk.lastIndexOf("#v")) + (cropLastHash ? "" : "#v");
     }
 
     //#endregion
@@ -88,7 +95,7 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
      * 
      * @param ddbTrx inherit
      */ 
-     async create(ddbTrx: boolean = false)
+     async create(ddbTrx: boolean = false) : Promise<PutCommandInput|boolean>
      {
          this.validate();
          this.setDtCreatedNow();
@@ -105,7 +112,8 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
  
          if(ddbTrx) return params;
 
-         return await DDBCommom.Put(params);
+         await DDBCommom.Put(params);
+         return true;
      }
 
      async createPreHook()
@@ -148,11 +156,8 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
         const first = await DDBCommom.Query_First({
             TableName: this.TABLE_NAME,
             ScanIndexForward: false, // last first
-
             KeyConditionExpression: condition,
-
             ExpressionAttributeNames: { "#PK": "_PK", "#SK": "_SK" },
-
             ExpressionAttributeValues: {  
                 ":pk": pk,
                 ":sk": beginsWith
@@ -165,7 +170,7 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
     /**
      * @override
      */
-     async update(ddbTrx: boolean = false) : Promise<boolean|UpdateCommandInput>
+     async update(ddbTrx: boolean = false) : Promise<UpdateCommandInput|boolean>
      {
          throw "Versioning entity does't allow update";
          return false;
@@ -180,34 +185,7 @@ export default abstract class AEntityVersion<T extends IEntity> extends AEntity<
         // get all itens
         const lstItens = await this.getAllVersions();
 
-        // split in chuncks of 25 (max batch write dynamodb limit)
-        const chunks = _chunk(lstItens, 25);
-
-        for(let i=0; i<chunks.length; i++) // prepare and execute the batchWrite()
-        {
-            const chunkItem = chunks[i];
-            const params    = {} as BatchWriteCommandInput;
-
-            params.RequestItems = {};
-            params.RequestItems[this.TABLE_NAME] = [];
-
-            chunkItem.forEach((item) => 
-            {
-                if(params && params.RequestItems && params.RequestItems[this.TABLE_NAME])
-                params.RequestItems[this.TABLE_NAME].push(
-                    {
-                        DeleteRequest: {
-                            Key: {
-                                "_PK": item._PK as any,
-                                "_SK": item._SK as any
-                            }
-                        }
-                    }
-                );
-            });
-
-            await DDBCommom.BatchWrite(params);
-        }
+        await this._deleteBatch(lstItens);
 
         return true;
     }

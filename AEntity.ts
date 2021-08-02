@@ -5,9 +5,13 @@ import _unset from "lodash/unset";
 import _has from "lodash/has";
 import _get from "lodash/get";
 import _forOwn from "lodash/forOwn";
+import _chunk from "lodash/chunk";
 
 import { 
+    BatchWriteCommandInput,
     PutCommandInput,
+    PutCommandOutput,
+    TransactWriteCommandOutput,
     UpdateCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 
@@ -25,13 +29,23 @@ export interface IEntity    // Base entity
 
 export default abstract class AEntity<T extends IEntity>
 {
+    /** @var TABLE_NAME DynamoDB Table name */
     abstract readonly TABLE_NAME: string;
+
+    /** @var PK_DEFAULT DynamoDB Default PK value for insert the entity */
     abstract readonly PK_DEFAULT: string;
-    public   readonly SK_PATTERN: string; // defaults = "[type]#[sort]";
+
+    /** @var SK_PATTERN DynamoDB SK value for insert, default is [Entity Name]#[Sort value]  */
+    public readonly SK_PATTERN: string; // defaults = "[type]#[sort]";
     
-    // protected _conn : DocumentClient;
+    /** @var _data Where the document stored in DynamoDB Row resides */
     public _data  : T;
+
+    /** @var ENTITY The entity string name */
     public ENTITY : string;
+
+    /** @var linked Boolean indicates whether the _data cames from database (or was inserted successfully) */
+    public linked: boolean = false;
 
     //#region [Main]
 
@@ -64,7 +78,11 @@ export default abstract class AEntity<T extends IEntity>
     {
         let data = {} as T;
 
-        if(json) data = _assignIn({}, json);
+        if(json) 
+        {
+            data = _assignIn({}, json);
+            this.linked = true;
+        }
         data._ENTITY = this.ENTITY;
 
         return data;
@@ -108,9 +126,10 @@ export default abstract class AEntity<T extends IEntity>
         return this;
     }
 
-    setValue(field: keyof T, value: string)
+    setValue(field: keyof T, value: any)
     {
         _set(this._data, field, value);
+        return this;
     }
 
     getValue(field: keyof T)
@@ -177,7 +196,7 @@ export default abstract class AEntity<T extends IEntity>
      * @param checkExists Check if PK and SK exists before put document. If exists, throw a dynamodb error.
      * @param ddbTrx If true returns a DynamoDB PutItemInput and don't execute the insert.
      */ 
-    async create(checkExists: boolean = true, ddbTrx: boolean = false)
+    async create(checkExists: boolean = true, ddbTrx: boolean = false) : Promise<PutCommandInput|boolean>
     {
         this.validate();
         this.setDtCreatedNow();
@@ -196,7 +215,10 @@ export default abstract class AEntity<T extends IEntity>
 
         if(ddbTrx) return params;
 
-        return await DDBCommom.Put(params);
+        await DDBCommom.Put(params);
+        this.linked = true;
+
+        return true;
     }
 
     async update(ddbTrx: boolean = false) : Promise<boolean|UpdateCommandInput>
@@ -252,6 +274,39 @@ export default abstract class AEntity<T extends IEntity>
         return true;
     }
 
+    async _deleteBatch(lst: IEntity[])
+    {
+        // split in chuncks of 25 (max batch write dynamodb limit)
+        const chunks = _chunk(lst, 25);
+
+        for(let i=0; i<chunks.length; i++) // prepare and execute the batchWrite()
+        {
+            const chunkItem = chunks[i];
+            const params    = {} as BatchWriteCommandInput;
+
+            params.RequestItems = {};
+            params.RequestItems[this.TABLE_NAME] = [];
+
+            chunkItem.forEach((item) => 
+            {
+                if(params && params.RequestItems && params.RequestItems[this.TABLE_NAME])
+                params.RequestItems[this.TABLE_NAME].push(
+                    {
+                        DeleteRequest: {
+                            Key: {
+                                "_PK": item._PK as any,
+                                "_SK": item._SK as any
+                            }
+                        }
+                    }
+                );
+            });
+
+            await DDBCommom.BatchWrite(params);
+        }
+
+        return true;
+    }
     //#endregion
 }
 
